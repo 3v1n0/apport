@@ -173,7 +173,7 @@ def _assert_divide_by_zero_retrace(report: Report) -> None:
     )
     return_line = "    return 42 / zero;\n"
     source_line_regex = re.compile(rf"\n[0-9]+\t{re.escape(return_line)}")
-    printf_line = '    printf("42 / 0 = %i\\\\n", divide_by_zero());\n'
+    printf_line = '    printf("42 / 0 = %i\\n", divide_by_zero());\n'
     printf_line_regex = re.compile(rf"\n[0-9]+\t{re.escape(printf_line)}")
     assert "divide_by_zero" in report["Disassembly"]
     # Expect RIP point to divide_by_zero
