@@ -253,13 +253,17 @@ def test_retrace_system_sandbox(
 
 
 @pytest.mark.skipif(not has_internet(), reason="online test")
+@pytest.mark.skipif(
+    impl.get_system_architecture() == "s390x",
+    reason="GDB has issues with divide-by-zero on s390x (LP: #2075204)",
+)
 def test_retrace_system_sandbox_with_related_libc6(
-    workdir: pathlib.Path, module_cachedir: pathlib.Path, seg_fault_crash: str
+    workdir: pathlib.Path, module_cachedir: pathlib.Path, divide_by_zero_crash: str
 ) -> None:
-    """Retrace seg-fault with libc6 as related package."""
-    crash_with_related = workdir / "seg-fault-related-libc6.crash"
+    """Retrace divide-by-zero with libc6 as related package."""
+    crash_with_related = workdir / "divide-by-zero-related-libc6.crash"
     report = Report()
-    with open(seg_fault_crash, "rb") as report_file:
+    with open(divide_by_zero_crash, "rb") as report_file:
         report.load(report_file)
     report["RelatedPackageVersions"] = f"libc6 {impl.get_version('libc6')}\n"
     with open(crash_with_related, "wb") as report_file:
@@ -282,9 +286,7 @@ def test_retrace_system_sandbox_with_related_libc6(
 
     retraced_report = _read_and_print_retraced_report(retraced_report_filename)
     _assert_is_retraced(retraced_report)
-    assert retraced_report["ExecutablePath"] == "/usr/bin/seg-fault"
-    _assert_libc_frame_has_source_info(retraced_report["Stacktrace"])
-    _assert_libc_frame_has_source_info(retraced_report["ThreadStacktrace"])
+    _assert_divide_by_zero_retrace(retraced_report)
 
 
 @pytest.mark.skipif(not has_internet(), reason="online test")
