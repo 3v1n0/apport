@@ -254,7 +254,7 @@ def test_retrace_system_sandbox_with_related_libc6(
         report.write(report_file)
 
     retraced_report_filename = workdir / "retraced-related-libc6.crash"
-    env = os.environ
+    env = os.environ | local_test_environment()
     print("Running with env", env)
     cmd = [
         "apport-retrace",
