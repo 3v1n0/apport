@@ -161,16 +161,22 @@ def _assert_divide_by_zero_retrace(report: Report) -> None:
         r" at (/usr/src/chaos-marmosets-[^/]+/|\./)?divide-by-zero.c:[0-9]+$",
         flags=re.M,
     )
+    return_line = "    return 42 / zero;\n"
+    source_line_regex = re.compile(rf"\n[0-9]+\t{re.escape(return_line)}")
+    printf_line = '    printf("42 / 0 = %i\\\\n", divide_by_zero());\n'
+    printf_line_regex = re.compile(rf"\n[0-9]+\t{re.escape(printf_line)}")
     assert "divide_by_zero" in report["Disassembly"]
     # Expect RIP point to divide_by_zero
     assert "divide_by_zero" in report["Registers"]
     assert frame_regex.match(report["Stacktrace"])
     assert frame_regex.match(report["StacktraceSource"])
     assert "42 / zero" in report["StacktraceSource"]
-    assert "42 / zero" in report["Stacktrace"]
+    assert source_line_regex.search(report["Stacktrace"])
+    assert printf_line_regex.search(report["Stacktrace"])
     assert stack_regex.match(report["StacktraceTop"])
     assert frame_regex.search(report["ThreadStacktrace"])
-    assert "42 / zero" in report["ThreadStacktrace"]
+    assert source_line_regex.search(report["ThreadStacktrace"])
+    assert printf_line_regex.search(report["ThreadStacktrace"])
 
 
 def _assert_libc_frame_has_source_info(trace: str) -> None:
