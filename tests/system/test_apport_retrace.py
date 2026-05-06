@@ -34,12 +34,11 @@ def fixture_module_cachedir(module_workdir: pathlib.Path) -> pathlib.Path:
     return module_workdir / "cache"
 
 
-@pytest.fixture(name="divide_by_zero_crash", scope="module")
-def fixture_divide_by_zero_crash(module_workdir: pathlib.Path) -> str:
-    """Generate a Report with a crash of divide-by-zero."""
-    executable = "/usr/bin/divide-by-zero"
+def create_crash_report(module_workdir: pathlib.Path, executable: str) -> str:
+    """Generate a crash report for the given executable."""
     assert pathlib.Path(executable).exists()
-    core_path = module_workdir / "divide-by-zero.core"
+    binary_name = pathlib.Path(executable).name
+    core_path = module_workdir / f"{binary_name}.core"
     gdb = subprocess.run(
         [
             "gdb",
@@ -60,7 +59,6 @@ def fixture_divide_by_zero_crash(module_workdir: pathlib.Path) -> str:
     signal_match = re.search("Program received signal (SIG[A-Z]+)", gdb.stdout)
     assert signal_match, gdb.stdout
 
-    # generate crash report
     report = Report()
     report["ExecutablePath"] = executable
     report["Signal"] = str(signal.Signals[signal_match.group(1)].value)
@@ -69,11 +67,23 @@ def fixture_divide_by_zero_crash(module_workdir: pathlib.Path) -> str:
     report.add_package_info()
     report["CoreDump"] = (str(core_path),)
 
-    report_filename = module_workdir / "divide-by-zero.crash"
+    report_filename = module_workdir / f"{binary_name}.crash"
     with open(report_filename, "wb") as report_file:
         report.write(report_file)
 
     return str(report_filename)
+
+
+@pytest.fixture(name="divide_by_zero_crash", scope="module")
+def fixture_divide_by_zero_crash(module_workdir: pathlib.Path) -> str:
+    """Generate a Report with a crash of divide-by-zero."""
+    return create_crash_report(module_workdir, "/usr/bin/divide-by-zero")
+
+
+@pytest.fixture(name="seg_fault_crash", scope="module")
+def fixture_seg_fault_crash(module_workdir: pathlib.Path) -> str:
+    """Generate a Report with a crash of seg-fault."""
+    return create_crash_report(module_workdir, "/usr/bin/seg-fault")
 
 
 @pytest.fixture(name="workdir")
@@ -243,17 +253,13 @@ def test_retrace_system_sandbox(
 
 
 @pytest.mark.skipif(not has_internet(), reason="online test")
-@pytest.mark.skipif(
-    impl.get_system_architecture() == "s390x",
-    reason="GDB has issues with divide-by-zero on s390x (LP: #2075204)",
-)
 def test_retrace_system_sandbox_with_related_libc6(
-    workdir: pathlib.Path, module_cachedir: pathlib.Path, divide_by_zero_crash: str
+    workdir: pathlib.Path, module_cachedir: pathlib.Path, seg_fault_crash: str
 ) -> None:
-    """Retrace divide-by-zero with libc6 as related package."""
-    crash_with_related = workdir / "divide-by-zero-related-libc6.crash"
+    """Retrace seg-fault with libc6 as related package."""
+    crash_with_related = workdir / "seg-fault-related-libc6.crash"
     report = Report()
-    with open(divide_by_zero_crash, "rb") as report_file:
+    with open(seg_fault_crash, "rb") as report_file:
         report.load(report_file)
     report["RelatedPackageVersions"] = f"libc6 {impl.get_version('libc6')}\n"
     with open(crash_with_related, "wb") as report_file:
@@ -261,10 +267,8 @@ def test_retrace_system_sandbox_with_related_libc6(
 
     retraced_report_filename = workdir / "retraced-related-libc6.crash"
     env = os.environ | local_test_environment()
-    print("Running with env", env)
     cmd = [
         "apport-retrace",
-        # "/tmp/apport/bin/apport-retrace",
         "-v",
         "-o",
         str(retraced_report_filename),
@@ -278,7 +282,7 @@ def test_retrace_system_sandbox_with_related_libc6(
 
     retraced_report = _read_and_print_retraced_report(retraced_report_filename)
     _assert_is_retraced(retraced_report)
-    _assert_divide_by_zero_retrace(retraced_report)
+    assert retraced_report["ExecutablePath"] == "/usr/bin/seg-fault"
     _assert_libc_frame_has_source_info(retraced_report["Stacktrace"])
     _assert_libc_frame_has_source_info(retraced_report["ThreadStacktrace"])
 

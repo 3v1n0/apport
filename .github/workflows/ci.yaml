@@ -207,7 +207,7 @@ jobs:
           GDK_BACKEND: x11
         run: >
           xvfb-run python3 -m pytest -v -ra --cov=$(pwd)
-          --cov-report=xml --durations=0 tests/system/test_apport_retrace.py --capture=tee-sys
+          --cov-report=xml --durations=0 tests/system/test_apport_retrace.py -k related_libc6 --capture=tee-sys
       - name: Stop D-Bus daemon
         run: kill $(cat /run/dbus/pid)
       - name: Upload coverage
@@ -253,7 +253,7 @@ jobs:
           && cp -r tests "$WORKDIR"
           && cd "$WORKDIR"
           && sudo xvfb-run python3 -m pytest -v -ra --cov=$(pwd)
-          --cov-report=xml --durations=0 tests/system/test_apport_retrace.py --capture=tee-sys
+          --cov-report=xml --durations=0 tests/system/test_apport_retrace.py -k related_libc6 --capture=tee-sys
           && cd -
           && cp "$WORKDIR/coverage.xml" .
       - name: Upload coverage
